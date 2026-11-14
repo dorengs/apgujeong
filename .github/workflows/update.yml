@@ -17,6 +17,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: board
@@ -64,3 +65,16 @@ jobs:
 
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      # 자동 갱신이 실패하면 저장소에 글을 남겨 주인에게 메일이 가게 합니다(이미 열린 글이 있으면 새로 만들지 않음).
+      - name: 실패 알림
+        if: failure() && github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "전광판 갱신 실패 in:title" --json number -q 'length')
+          if [ "$open" = "0" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "전광판 갱신 실패 $(TZ=Asia/Seoul date '+%m월 %d일 %H:%M')" \
+              --body "@${GITHUB_REPOSITORY_OWNER} 자동 갱신이 실패했습니다. 화면에는 직전 자료가 그대로 남아 있습니다. 실행 기록: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi

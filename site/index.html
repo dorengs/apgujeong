@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>압구정 실거래 전광판</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Hahmlet:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 배치: 로고와 같은 밤색 전광판 한 장(새로 뜬 거래·최근 계약)만 강조하고, 그 아래는 구역 → 단지 → 평형 순서의 장부. */
+  --bg:#f3f0ec;
+  --surface:#ffffff;
+  --ink:#241b14;
+  --muted:#6d6259;
+  --line:#ddd6ce;
+  --chip:#ece6df;
+  --board:#463628;            /* 연세부동산 로고 바탕색 */
+  --board-ink:#ffffff;
+  --board-muted:#d5c8b9;
+  --board-line:rgba(255,255,255,.17);
+  --call-bg:#ffffff;
+  --call-ink:#463628;
+  --up:#c8302b;
+  --up-on-board:#ffab99;
+  --f-display:"Hahmlet","Noto Serif KR","Nanum Myeongjo","Batang",serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  --f-num:"Barlow Condensed","IBM Plex Sans KR","Arial Narrow",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13100d;
+    --surface:#1c1814;
+    --ink:#f0eae4;
+    --muted:#a99d91;
+    --line:#342c25;
+    --chip:#2b241e;
+    --board:#463628;
+    --board-ink:#ffffff;
+    --board-muted:#d5c8b9;
+    --board-line:rgba(255,255,255,.17);
+    --call-bg:#ffffff;
+    --call-ink:#463628;
+    --up:#ff7a6b;
+    --up-on-board:#ffab99;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13100d;
+  --surface:#1c1814;
+  --ink:#f0eae4;
+  --muted:#a99d91;
+  --line:#342c25;
+  --chip:#2b241e;
+  --board:#463628;
+  --board-ink:#ffffff;
+  --board-muted:#d5c8b9;
+  --board-line:rgba(255,255,255,.17);
+  --call-bg:#ffffff;
+  --call-ink:#463628;
+  --up:#ff7a6b;
+  --up-on-board:#ffab99;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1080px;margin-inline:auto;padding-inline:16px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:16px;top:-48px;background:var(--ink);color:var(--bg);padding:8px 12px;border-radius:8px;z-index:10}
+.skip:focus{top:8px}
+a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--up);outline-offset:2px}
+.board a:focus-visible{outline-color:var(--up-on-board)}
+
+/* 전광판 */
+.board{margin-top:16px;background:var(--board);color:var(--board-ink);border-radius:18px;padding:clamp(18px,3.6vw,34px)}
+.board-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px 24px;flex-wrap:wrap}
+.eyebrow{margin:0 0 6px;font-size:13px;letter-spacing:.04em;color:var(--board-muted)}
+h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6vw,50px);line-height:1.12;letter-spacing:-.01em;text-wrap:balance}
+.board-id{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.logo{display:block;height:46px;width:auto;max-width:100%}
+.call{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 16px 6px 12px;border-radius:999px;background:var(--call-bg);color:var(--call-ink);text-decoration:none}
+.call svg{flex:none;width:20px;height:20px}
+.call-label{font-size:12.5px;font-weight:600}
+.call-num{font-family:var(--f-num);font-weight:700;font-size:25px;letter-spacing:.02em;line-height:1;white-space:nowrap}
+.board-bar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-top:16px}
+.asof{display:inline-flex;align-items:center;gap:8px;margin:0;padding:6px 12px;border:1px solid var(--board-line);border-radius:999px;font-size:13.5px;font-variant-numeric:tabular-nums}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--up-on-board);flex:none;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.link{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--board-line);border-radius:999px;background:rgba(255,255,255,.07);color:var(--board-ink);font-size:13.5px;font-weight:500;text-decoration:none;white-space:nowrap}
+.link:hover{background:rgba(255,255,255,.16)}
+.link svg{flex:none;width:15px;height:15px}
+
+.feeds{display:grid;grid-template-columns:1fr;gap:22px 40px;margin-top:22px}
+@media (min-width:860px){.feeds{grid-template-columns:1fr 1fr}}
+.feed-title{margin:0;font-family:var(--f-body);font-size:16px;font-weight:600}
+.feed-cap{margin:2px 0 0;font-size:12.5px;color:var(--board-muted)}
+.day-head{display:flex;align-items:baseline;gap:8px;margin:14px 0 0;font-size:14.5px}
+.day-head b{font-weight:600;color:var(--up-on-board)}
+.day-head span{font-size:12.5px;color:var(--board-muted);font-variant-numeric:tabular-nums}
+.day-empty{margin:6px 0 0;padding:10px 0 2px;border-top:1px solid var(--board-line);font-size:13.5px;color:var(--board-muted)}
+.feed{list-style:none;margin:6px 0 0;padding:0}
+.feed li{display:grid;grid-template-columns:auto 1fr auto;gap:2px 14px;align-items:baseline;padding:10px 0;border-top:1px solid var(--board-line)}
+.f-date{min-width:58px;font-family:var(--f-num);font-size:18px;color:var(--board-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.f-name{font-weight:500}
+.f-name b{font-weight:600}
+.f-meta{font-size:13px;color:var(--board-muted);margin-left:6px;white-space:nowrap}
+.f-price{text-align:right}
+.f-price b{font-size:26px}
+
+/* 금액 */
+.won{white-space:nowrap;line-height:1.1;font-variant-numeric:tabular-nums}
+.won b{font-family:var(--f-num);font-weight:600}
+.won i{font-style:normal;font-size:14px;margin-left:1px}
+.won small{font-family:var(--f-num);font-weight:500;font-size:18px;margin-left:4px;opacity:.86}
+.won-lg b{font-size:32px}
+.won-lg small{font-size:20px}
+.won-md b{font-size:25px}
+.chip{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--chip);color:var(--ink);white-space:nowrap;vertical-align:middle}
+.chip-up{background:var(--up);color:#fff}
+.board .chip{background:rgba(255,255,255,.16);color:var(--board-ink);margin-left:6px}
+.board .chip-up{background:var(--up-on-board);color:#3a0d06}
+
+/* 구역 고르기 */
+.zones{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px 12px;flex-wrap:wrap;margin-top:18px;padding-block:12px;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:6px;max-width:100%;overflow-x:auto;padding:2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{font:inherit;font-size:15px;font-weight:500;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.tab[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.search input{font:inherit;font-size:15px;width:min(100%,290px);padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.search input::placeholder{color:var(--muted)}
+
+/* 구역 · 단지 · 평형 */
+.zone{margin-top:28px;scroll-margin-top:84px}
+.zone-head{display:flex;align-items:baseline;gap:6px 12px;flex-wrap:wrap;margin-bottom:12px}
+.zone-head h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1}
+.zn{font-family:var(--f-num);font-weight:700;font-size:46px;margin-right:2px}
+.zone-desc{font-size:14px;color:var(--muted)}
+.unit{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+.unit-head{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.unit-head h3{margin:0;font-size:17px;font-weight:600}
+.unit-note{font-size:13px;color:var(--muted)}
+.row + .row{border-top:1px solid var(--line)}
+.row-sum{display:grid;grid-template-columns:minmax(140px,1fr) minmax(160px,1fr) minmax(210px,1.25fr) 20px;gap:8px 16px;align-items:start;padding:14px 16px;cursor:pointer;list-style:none}
+.row-sum::-webkit-details-marker{display:none}
+.py{line-height:1}
+.py b{font-family:var(--f-num);font-weight:700;font-size:36px}
+.py i{font-style:normal;font-size:15px;font-weight:500;margin-left:2px}
+.py-sub{margin-top:3px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.lab{margin-bottom:2px;font-size:11.5px;letter-spacing:.04em;color:var(--muted)}
+.meta{margin-top:2px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.last-line{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.delta{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.none{font-size:15px;color:var(--muted)}
+.chev{justify-self:end;align-self:center;width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+details[open] > .row-sum .chev{transform:rotate(-135deg)}
+.row-body{padding:2px 16px 16px;background:var(--bg)}
+.t-wrap{overflow-x:auto}
+.trades{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.trades th{padding:10px 12px 6px 0;text-align:left;font-size:12px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap}
+.trades td{padding:7px 12px 7px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.trades .won b{font-size:19px}
+.trades .won small{font-size:15px}
+.row-note{margin:10px 0 0;font-size:12.5px;color:var(--muted)}
+.empty{margin:28px 0;padding:20px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);text-align:center}
+
+/* 안내 */
+.foot{padding-block:30px 44px;color:var(--muted);font-size:13px}
+.foot h2{margin:0 0 8px;font-size:14px;font-weight:600;color:var(--ink)}
+.foot ul{margin:0;padding-left:18px;max-width:72ch}
+.foot li{margin:3px 0}
+.foot-brand{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line);color:var(--ink)}
+.foot-brand a{color:inherit;font-weight:600}
+
+@media (max-width:640px){
+  .board-id{order:-1;flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  .logo{flex:0 1 156px;width:156px;min-width:104px;height:auto}
+  .call{flex:none;padding:6px 13px 6px 10px}
+  .call-label{display:none}
+  .call-num{font-size:22px}
+  .row-sum{position:relative;grid-template-columns:1fr 1fr;grid-template-areas:"py py" "high last";padding-right:36px}
+  .c-py{grid-area:py;display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+  .c-high{grid-area:high}
+  .c-last{grid-area:last}
+  .chev{position:absolute;right:16px;top:24px}
+  .py b{font-size:32px}
+  .py-sub{margin-top:0}
+  .won-lg b{font-size:27px}
+  .won-lg small{font-size:18px}
+  .won-md b{font-size:23px}
+  .feed li{gap:2px 10px}
+  .f-date{min-width:0;font-size:16px}
+  .f-price b{font-size:23px}
+  .search,.search input{width:100%}
+}
+@media (prefers-reduced-motion:reduce){
+  .dot{animation:none}
+  .chev{transition:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#list">평형별 목록으로 건너뛰기</a>
+
+<main class="wrap">
+  <section class="board" aria-labelledby="title">
+    <div class="board-top">
+      <div class="board-title">
+        <p class="eyebrow">압구정 재건축 1~6구역 · 국토교통부 실거래가</p>
+        <h1 id="title">압구정 실거래 전광판</h1>
+      </div>
+      <div class="board-id">
+        <img class="logo" src="logo.png" width="482" height="97" alt="연세부동산중개법인 Yonsei Real Estate Agency Co., Ltd.">
+        <a class="call" href="tel:025423400" aria-label="문의전화 02-542-3400, 누르면 전화가 걸립니다">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.4 11.4 0 0 0 .57 3.6 1 1 0 0 1-.25 1z"/></svg>
+          <span class="call-label">문의전화</span>
+          <span class="call-num">02-542-3400</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="board-bar">
+      <p class="asof"><span class="dot" aria-hidden="true"></span><span id="asof">자료를 불러오는 중입니다</span></p>
+      <nav class="links" aria-label="바로가기">
+        <a class="link" href="https://claude.ai/artifact/3Cw5shgg35jNLToFJdiMLu"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM8 5h8v4H8zM8 11h2v2H8zM11 11h2v2h-2zM14 11h2v2h-2zM8 14h2v2H8zM11 14h2v2h-2zM14 14h2v5h-2zM8 17h2v2H8zM11 17h2v2h-2z"/></svg>양도세 계산기</a>
+        <a class="link" href="https://claude.ai/artifact/84NidMvU9ozsZkzT6gQKNx"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM8 5h8v4H8zM8 11h2v2H8zM11 11h2v2h-2zM14 11h2v2h-2zM8 14h2v2H8zM11 14h2v2h-2zM14 14h2v5h-2zM8 17h2v2H8zM11 17h2v2h-2z"/></svg>보유세 계산기</a>
+        <a class="link" href="https://www.youtube.com/c/%EB%A7%88%ED%8B%B0%EC%9D%B8%EB%B6%80%EB%8F%99%EC%82%B0TV"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM10 8.2v7.6l6.2-3.8z"/></svg>유튜브</a>
+        <a class="link" href="https://blog.naver.com/doreng"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 20v-3.6L15.1 5.3l3.6 3.6L7.6 20H4zM16.5 3.9l1.4-1.4a1.5 1.5 0 0 1 2.1 0l1.5 1.5a1.5 1.5 0 0 1 0 2.1l-1.4 1.4-3.6-3.6zM11 20l2-2h8v2H11z"/></svg>블로그</a>
+      </nav>
+    </div>
+
+    <div class="feeds">
+      <div class="feed-col">
+        <h2 class="feed-title" id="fresh-title">새로 뜬 거래</h2>
+        <p class="feed-cap">국토부 자료에 처음 올라온 날로 묶었습니다. 줄 앞의 날짜는 계약일입니다.</p>
+        <div id="fresh"></div>
+      </div>
+      <div class="feed-col">
+        <h2 class="feed-title" id="feed-title">최근 계약</h2>
+        <p class="feed-cap">계약일이 가까운 순서입니다.</p>
+        <ol class="feed" id="feed" aria-labelledby="feed-title"></ol>
+      </div>
+    </div>
+  </section>
+
+  <nav class="zones" id="zones" aria-label="구역 고르기">
+    <div class="tabs" id="tabs"></div>
+    <div class="search">
+      <label class="vh" for="q">평형이나 동으로 찾기</label>
+      <input id="q" type="search" placeholder="평형·동으로 찾기 (예: 35평, 113동)" autocomplete="off">
+    </div>
+  </nav>
+
+  <div id="list"></div>
+  <p class="empty" id="empty" hidden>조건에 맞는 평형이 없습니다. 검색어를 지우거나 다른 구역을 눌러 보세요.</p>
+  <noscript><p class="empty">이 화면은 자바스크립트를 켜야 보입니다.</p></noscript>
+</main>
+
+<footer class="foot wrap">
+  <h2>자료 안내</h2>
+  <ul>
+    <li>국토교통부 실거래가 공개시스템의 아파트 매매 자료이며, 2006년 1월 이후 신고분을 계약일 기준으로 정리했습니다.</li>
+    <li>뜬 날은 국토부 공개 자료에 거래가 처음 나타난 날입니다. <span id="since-note"></span></li>
+    <li>계약 해제로 신고된 거래는 최고가와 최근 거래에서 뺐습니다.</li>
+    <li>평형은 현장에서 부르는 호칭이고, 전용면적을 함께 적었습니다.</li>
+    <li>저층·코너 세대처럼 면적이 다른 일부 거래는 평형별 집계에 넣지 않았습니다.</li>
+    <li>계약 후 30일 안에 신고하므로 최근 계약은 늦게 나타날 수 있습니다. 동은 소유권 이전등기 뒤에 공개됩니다.</li>
+    <li>참고용 자료입니다. 실제 거래 전에는 반드시 다시 확인해 주세요.</li>
+  </ul>
+  <p class="foot-brand"><strong>압구정동 현대아파트 전문 연세부동산중개법인(주)</strong> · 문의전화 <a href="tel:025423400">02-542-3400</a></p>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  var D = window.APG;
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  if (!D || !D.cfg || !D.lines) {
+    $('asof').textContent = '자료를 불러오지 못했습니다. 잠시 뒤 새로 고쳐 주세요.';
+    return;
+  }
+
+  /* 자동 업데이트 기록(log.js): 체크섬이 맞는 줄만 반영한다. 틀린 줄은 건너뛰어 직전 값이 그대로 남는다. */
+  function csum(s) { var a = 0; for (var i = 0; i < s.length; i++) a = (a + s.charCodeAt(i) * ((i % 97) + 1)) % 1000003; return a; }
+  (window.APG_LOG || []).forEach(function (s) {
+    if (typeof s !== 'string') return;
+    var k = s.lastIndexOf('|#');
+    if (k < 1 || csum(s.slice(0, k)) !== +s.slice(k + 2)) return;
+    var f = s.slice(0, k).split('|');
+    if (f[0] === 'S') {
+      if (f.length < 7 || f[1] < D.asOf) return;
+      D.asOf = f[1];
+      D.counts.valid = +f[2];
+      D.track = { since: f[3], days: f[4] ? f[4].split(',') : [] };
+      D.feed = f[5] ? f[5].split(';') : [];
+      D.fresh = f[6] ? f[6].split(';') : [];
+    } else {
+      var idx = +f[0];
+      if (idx >= 0 && idx < D.lines.length && f.length >= 8) D.lines[idx] = s;
+    }
+  });
+
+  var ZONES = {
+    1: '미성 1·2차',
+    2: '신현대 9·11·12차',
+    3: '구현대 1~7·10·13·14차, 대림아크로빌, 빌라트',
+    4: '현대 8차, 한양 3·4·6차',
+    5: '한양 1·2차',
+    6: '한양 5·7·8차'
+  };
+  var NOTES = {
+    '신현대': '현대 9·11·12차',
+    '현대 4차': '저층 단지',
+    '현대 6·7차': '73~87동',
+    '현대 10차': '201·202동',
+    '대림아크로빌': '현대 65동',
+    '현대 8차': '성수현대 · 91~95동',
+    '한양 1차': '영동한양'
+  };
+
+  function trade(s) {
+    if (!s) return null;
+    var f = s.split(',');
+    return { p: +f[0], d: f[1], fl: f[2], dong: f[3], flag: f[4] || '' };
+  }
+  var groups = D.cfg.map(function (l, i) {
+    var f = l.split('|');
+    return { i: i, zone: +f[0], unit: f[1], name: f[3], areas: f[4] ? f[4].split(',').map(Number) : [], dong: f[5] || '', n: 0, n12: 0, nc: 0, high: null, recent: [] };
+  });
+  D.lines.forEach(function (l) {
+    var f = l.split('|');
+    var g = groups[+f[0]];
+    if (!g) return;
+    g.n = +f[1]; g.n12 = +f[2]; g.nc = +f[3];
+    g.high = trade(f[5]);
+    g.recent = f[6] ? f[6].split(';').map(trade) : [];
+  });
+
+  function ymd(s) { return s.slice(2, 4) + '.' + s.slice(4, 6) + '.' + s.slice(6, 8); }
+  function md(s) { return (+s.slice(4, 6)) + '월 ' + (+s.slice(6, 8)) + '일'; }
+  var asOf8 = D.asOf.slice(0, 10).replace(/-/g, '');
+  var asOfDay = Date.UTC(+D.asOf.slice(0, 4), +D.asOf.slice(5, 7) - 1, +D.asOf.slice(8, 10));
+  function daysAgo(s) { return Math.round((asOfDay - Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8))) / 86400000); }
+  /* 보는 사람의 오늘·어제(한국 시간) */
+  function kstDay(back) { return new Date(Date.now() + 9 * 3600000 - (back || 0) * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); }
+  var today = kstDay(0), yest = kstDay(1);
+
+  function where(t) {
+    var a = [];
+    if (t.fl !== '') a.push(t.fl + '층');
+    if (t.dong) a.push(t.dong + '동');
+    return a.join(' · ');
+  }
+  function meta(t) {
+    var w = where(t);
+    return ymd(t.d) + (w ? ' · ' + w : '');
+  }
+  function won(p, cls) {
+    var w = el('span', 'won' + (cls ? ' ' + cls : ''));
+    var eok = Math.floor(p / 10000), rest = p % 10000;
+    if (eok) { w.appendChild(el('b', null, String(eok))); w.appendChild(el('i', null, '억')); }
+    if (rest) w.appendChild(el('small', null, rest.toLocaleString('ko-KR') + (eok ? '' : '만')));
+    return w;
+  }
+  function areaText(g) {
+    if (!g.areas.length) return '';
+    var lo = Math.min.apply(null, g.areas), hi = Math.max.apply(null, g.areas);
+    return '전용 ' + (lo === hi ? lo : lo + '~' + hi) + '㎡';
+  }
+
+  /* 기준 시각 */
+  var stamp = D.asOf.slice(0, 10).replace(/-/g, '.') + ' ' + D.asOf.slice(11, 16);
+  $('asof').textContent = stamp + ' 국토교통부 공개분까지 반영 · 2006년 이후 ' + D.counts.valid.toLocaleString('ko-KR') + '건';
+  var track = D.track || { since: '', days: [] };
+  if (track.since) $('since-note').textContent = track.since.slice(0, 4) + '년 ' + md(track.since) + '부터 기록했습니다.';
+
+  /* 전광판: 새로 뜬 거래 · 최근 계약 */
+  function parseFeed(s) {
+    var k = s.lastIndexOf('|#');
+    var f = (k >= 0 ? s.slice(0, k) : s).split(',');
+    var g = groups[+f[0]];
+    if (!g) return null;
+    return { g: g, p: +f[1], d: f[2], fl: f[3], dong: f[4], flag: f[5] || '', seen: f[6] || '' };
+  }
+  function feedItem(t, showSeen) {
+    var li = el('li');
+    li.appendChild(el('span', 'f-date', ymd(t.d)));
+    var nm = el('span', 'f-name');
+    nm.appendChild(el('b', null, t.g.unit));
+    nm.appendChild(document.createTextNode(' ' + t.g.name));
+    var w = where(t);
+    if (w) nm.appendChild(el('span', 'f-meta', w));
+    if (t.flag.indexOf('H') >= 0) nm.appendChild(el('span', 'chip chip-up', '신고가'));
+    if (t.flag.indexOf('D') >= 0) nm.appendChild(el('span', 'chip', '직거래'));
+    if (showSeen && t.seen === today) nm.appendChild(el('span', 'chip', '오늘 뜸'));
+    else if (showSeen && t.seen === yest) nm.appendChild(el('span', 'chip', '어제 뜸'));
+    li.appendChild(nm);
+    li.appendChild(won(t.p, 'f-price'));
+    return li;
+  }
+
+  var fresh = (D.fresh || []).map(parseFeed).filter(Boolean);
+  function seenOn(day) { return fresh.filter(function (t) { return t.seen === day; }); }
+  var blocks = [];
+  var rt = seenOn(today), ry = seenOn(yest);
+  if (rt.length) blocks.push({ title: '오늘 뜬 거래', day: today, rows: rt });
+  else if (asOf8 === today) blocks.push({ title: '오늘 뜬 거래', day: today, empty: '오늘 새로 뜬 거래는 아직 없습니다.' });
+  if (ry.length) blocks.push({ title: '어제 뜬 거래', day: yest, rows: ry });
+  else if (track.days.indexOf(yest) >= 0) blocks.push({ title: '어제 뜬 거래', day: yest, empty: '어제는 새로 뜬 거래가 없었습니다.' });
+  else if (track.since && track.since > yest) blocks.push({ title: '어제 뜬 거래', day: yest, empty: '뜬 날은 ' + md(track.since) + '부터 기록합니다. 어제 뜬 거래는 내일부터 보입니다.' });
+  var older = [];
+  fresh.forEach(function (t) { if (t.seen !== today && t.seen !== yest && older.indexOf(t.seen) < 0) older.push(t.seen); });
+  var hasRows = blocks.some(function (b) { return !!b.rows; });
+  older.slice(0, hasRows ? 1 : 2).forEach(function (d) { blocks.push({ title: md(d) + ' 뜬 거래', day: d, rows: seenOn(d) }); });
+
+  var freshBox = $('fresh');
+  if (!blocks.length) freshBox.appendChild(el('p', 'day-empty', '새로 뜬 거래 기록이 아직 없습니다.'));
+  blocks.forEach(function (b) {
+    var head = el('div', 'day-head');
+    head.appendChild(el('b', null, b.title));
+    head.appendChild(el('span', null, ymd(b.day) + ' 공개' + (b.rows ? ' · ' + b.rows.length + '건' : '')));
+    freshBox.appendChild(head);
+    if (b.rows) {
+      var ol = el('ol', 'feed');
+      b.rows.slice(0, 10).forEach(function (t) { ol.appendChild(feedItem(t, false)); });
+      freshBox.appendChild(ol);
+    } else {
+      freshBox.appendChild(el('p', 'day-empty', b.empty));
+    }
+  });
+
+  var feed = $('feed');
+  D.feed.slice(0, 8).forEach(function (s) {
+    var t = parseFeed(s);
+    if (t) feed.appendChild(feedItem(t, true));
+  });
+
+  /* 구역 → 단지 → 평형 */
+  function row(g) {
+    var d = el('details', 'row');
+    d.setAttribute('data-text', (g.unit + ' ' + g.name + ' ' + g.dong + ' ' + g.areas.join(' ')).toLowerCase());
+    var s = el('summary', 'row-sum');
+
+    var a = el('div', 'c-py');
+    var py = el('div', 'py');
+    py.appendChild(el('b', null, g.name.replace('평', '')));
+    py.appendChild(el('i', null, '평'));
+    a.appendChild(py);
+    var sub = [areaText(g), g.dong].filter(Boolean).join(' · ');
+    if (sub) a.appendChild(el('div', 'py-sub', sub));
+    s.appendChild(a);
+
+    var b = el('div', 'c-high');
+    b.appendChild(el('div', 'lab', '역대 최고'));
+    if (g.high) {
+      b.appendChild(won(g.high.p, 'won-lg'));
+      b.appendChild(el('div', 'meta', meta(g.high)));
+    } else {
+      b.appendChild(el('div', 'none', '거래 없음'));
+      b.appendChild(el('div', 'meta', '2006년 이후 신고된 거래가 없습니다'));
+    }
+    s.appendChild(b);
+
+    var c = el('div', 'c-last');
+    c.appendChild(el('div', 'lab', '최근 거래'));
+    var last = g.recent[0];
+    if (last) {
+      var line = el('div', 'last-line');
+      line.appendChild(won(last.p, 'won-md'));
+      if (last.p === g.high.p && last.d === g.high.d) {
+        /* 최근 거래가 곧 최고가: 반년 안이면 신고가로 강조, 오래됐으면 담담하게 적는다 */
+        if (daysAgo(last.d) <= 183) line.appendChild(el('span', 'chip chip-up', '신고가'));
+        else line.appendChild(el('span', 'delta', '이 거래가 최고가'));
+      } else {
+        var pct = (last.p / g.high.p - 1) * 100;
+        line.appendChild(el('span', 'delta', pct === 0 ? '최고가와 같음' : '최고가 대비 ' + pct.toFixed(1).replace('-', '−') + '%'));
+      }
+      if (last.flag.indexOf('D') >= 0) line.appendChild(el('span', 'chip', '직거래'));
+      c.appendChild(line);
+      c.appendChild(el('div', 'meta', meta(last)));
+    } else {
+      c.appendChild(el('div', 'none', '거래 없음'));
+    }
+    s.appendChild(c);
+    var chev = el('span', 'chev');
+    chev.setAttribute('aria-hidden', 'true');
+    s.appendChild(chev);
+    d.appendChild(s);
+
+    var body = el('div', 'row-body');
+    if (g.recent.length) {
+      var wrap = el('div', 't-wrap');
+      var tb = el('table', 'trades');
+      var hr = el('tr');
+      ['계약일', '금액', '층', '동', '비고'].forEach(function (h) { var th = el('th', null, h); th.setAttribute('scope', 'col'); hr.appendChild(th); });
+      var thead = el('thead'); thead.appendChild(hr); tb.appendChild(thead);
+      var tbody = el('tbody');
+      g.recent.forEach(function (t) {
+        var tr = el('tr');
+        tr.appendChild(el('td', null, ymd(t.d)));
+        var td = el('td'); td.appendChild(won(t.p)); tr.appendChild(td);
+        tr.appendChild(el('td', null, t.fl !== '' ? t.fl + '층' : ''));
+        tr.appendChild(el('td', null, t.dong ? t.dong + '동' : ''));
+        var note = el('td');
+        if (t.flag.indexOf('H') >= 0) note.appendChild(el('span', 'chip chip-up', '당시 신고가'));
+        if (t.flag.indexOf('D') >= 0) { if (note.firstChild) note.appendChild(document.createTextNode(' ')); note.appendChild(el('span', 'chip', '직거래')); }
+        tr.appendChild(note);
+        tbody.appendChild(tr);
+      });
+      tb.appendChild(tbody); wrap.appendChild(tb); body.appendChild(wrap);
+    }
+    var cnt = g.n
+      ? '2006년 이후 ' + g.n.toLocaleString('ko-KR') + '건 · 최근 1년 ' + g.n12 + '건' + (g.nc ? ' · 해제 ' + g.nc + '건 제외' : '')
+      : '신고된 거래가 생기면 이 자리에 나타납니다.';
+    body.appendChild(el('p', 'row-note', cnt));
+    d.appendChild(body);
+    return d;
+  }
+
+  var list = $('list');
+  var zones = [];
+  var curZone = null, curUnit = null;
+  groups.forEach(function (g) {
+    if (!curZone || curZone.zone !== g.zone) {
+      var sec = el('section', 'zone');
+      sec.id = 'zone-' + g.zone;
+      var head = el('div', 'zone-head');
+      var h2 = el('h2');
+      h2.appendChild(el('span', 'zn', String(g.zone)));
+      h2.appendChild(document.createTextNode('구역'));
+      head.appendChild(h2);
+      head.appendChild(el('span', 'zone-desc', ZONES[g.zone] || ''));
+      sec.appendChild(head);
+      list.appendChild(sec);
+      curZone = { zone: g.zone, node: sec, units: [] };
+      zones.push(curZone);
+      curUnit = null;
+    }
+    if (!curUnit || curUnit.name !== g.unit) {
+      var art = el('article', 'unit');
+      var uh = el('div', 'unit-head');
+      uh.appendChild(el('h3', null, g.unit));
+      if (NOTES[g.unit]) uh.appendChild(el('span', 'unit-note', NOTES[g.unit]));
+      art.appendChild(uh);
+      curZone.node.appendChild(art);
+      curUnit = { name: g.unit, node: art, rows: [] };
+      curZone.units.push(curUnit);
+    }
+    var r = row(g);
+    curUnit.node.appendChild(r);
+    curUnit.rows.push(r);
+  });
+
+  /* 구역 버튼과 찾기 */
+  var state = { zone: 0, q: '' };
+  var tabs = $('tabs');
+  var tabNodes = [];
+  [0, 1, 2, 3, 4, 5, 6].forEach(function (z) {
+    var b = el('button', 'tab', z ? z + '구역' : '전체');
+    b.type = 'button';
+    b.id = 'tab-' + (z || 'all');
+    if (z) b.title = ZONES[z];
+    b.addEventListener('click', function () { location.hash = z ? 'zone-' + z : 'all'; });
+    tabs.appendChild(b);
+    tabNodes.push({ zone: z, node: b });
+  });
+
+  function apply() {
+    var any = false;
+    zones.forEach(function (z) {
+      var zshow = !state.zone || z.zone === state.zone;
+      var zany = false;
+      z.units.forEach(function (u) {
+        var uany = false;
+        u.rows.forEach(function (r) {
+          var ok = zshow && (!state.q || r.getAttribute('data-text').indexOf(state.q) >= 0);
+          r.hidden = !ok;
+          if (ok) uany = true;
+        });
+        u.node.hidden = !uany;
+        if (uany) zany = true;
+      });
+      z.node.hidden = !zany;
+      if (zany) any = true;
+    });
+    $('empty').hidden = any;
+    tabNodes.forEach(function (t) { t.node.setAttribute('aria-pressed', t.zone === state.zone ? 'true' : 'false'); });
+  }
+  function readHash() {
+    var m = /^#zone-([1-6])$/.exec(location.hash);
+    state.zone = m ? +m[1] : 0;
+  }
+  window.addEventListener('hashchange', function () { readHash(); apply(); });
+  $('q').addEventListener('input', function () { state.q = this.value.trim().toLowerCase(); apply(); });
+  readHash();
+  apply();
+})();
+</script>
+</body>
+</html>

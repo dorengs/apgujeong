@@ -13,6 +13,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: 전광판-갱신
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pages: write
@@ -54,7 +58,12 @@ jobs:
             echo "바뀐 것이 없습니다."
           else
             git commit -m "자료 갱신 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M')"
-            git push
+            # 그 사이 다른 저장이 있었으면 그 위에 얹어서 다시 시도한다(최대 4번)
+            for i in 1 2 3 4; do
+              git pull --rebase -X theirs && git push && break
+              echo "저장 재시도 $i"; sleep 5
+            done
+            git diff origin/main --quiet -- raw site/data.js || { echo "저장 실패"; exit 1; }
           fi
 
       - uses: actions/configure-pages@v5

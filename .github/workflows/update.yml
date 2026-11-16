@@ -13,10 +13,6 @@ on:
   push:
     branches: [main]
 
-concurrency:
-  group: 전광판-갱신
-  cancel-in-progress: false
-
 permissions:
   contents: write
   pages: write

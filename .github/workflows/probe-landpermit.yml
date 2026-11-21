@@ -1,0 +1,20 @@
+name: probe-landpermit
+on:
+  push:
+    branches: [probe-landpermit]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: permits dry run (no commit)
+        run: |
+          node scripts/update.mjs permits
+          echo '--- data.js permits'
+          grep -n '^  permits:' site/data.js
+          echo '--- raw/permits.json (head)'
+          head -12 raw/permits.json

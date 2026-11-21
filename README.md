@@ -14,7 +14,7 @@
 | `scripts/update.mjs` | 국토부 자료를 받아 `raw/rows.json`을 고치고 `site/data.js`를 새로 만듭니다. |
 | `config/cfg.json` | 전용면적 → 현장 호칭 대응표, 집계에서 빼는 면적, 뜬 날 기록 시작일. |
 | `raw/rows.json` | 받아 둔 압구정동 거래 전체. 거래마다 처음 나타난 날(`s`)을 함께 적습니다. |
-| `.github/workflows/update.yml` | 평일 오전 9시 47분·오후 2시 47분(한국 시간)에 자동으로 갱신하고 게시합니다. |
+| `.github/workflows/update.yml` | 평일 9시 47분·10시 47분·12시 47분·14시 47분·16시 47분, 토요일 9시 47분·10시 47분(한국 시간)에 자동으로 갱신하고 게시합니다. |
 
 인증키는 저장소 **Settings → Secrets and variables → Actions**의 `MOLIT_KEY`에 들어 있습니다. 파일에는 적지 않습니다.
 

@@ -111,6 +111,10 @@ h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:clamp(30px,6v
 .f-meta{font-size:13px;color:var(--board-muted);margin-left:6px;white-space:nowrap}
 .f-price{text-align:right}
 .f-price b{font-size:26px}
+.feed-sub{margin-top:26px}
+.p-st{justify-self:end;font-size:15px;font-weight:600;white-space:nowrap}
+.p-st.p-off{color:var(--board-muted);font-weight:500}
+.feed li.p-empty{display:block;font-size:13.5px;color:var(--board-muted)}
 
 /* 금액 */
 .won{white-space:nowrap;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -238,6 +242,9 @@ details[open] > .row-sum .chev{transform:rotate(-135deg)}
         <h2 class="feed-title" id="fresh-title">새로 뜬 거래</h2>
         <p class="feed-cap">국토부 자료에 처음 올라온 날로 묶었습니다. 줄 앞의 날짜는 계약일입니다.</p>
         <div id="fresh"></div>
+        <h2 class="feed-title feed-sub" id="permit-title" hidden>최근 토지거래허가</h2>
+        <p class="feed-cap" id="permit-cap" hidden>구청이 처리한 날짜순입니다. 허가 뒤 계약·신고를 거쳐 실거래가에 나타납니다.</p>
+        <ol class="feed" id="permits" aria-labelledby="permit-title" hidden></ol>
       </div>
       <div class="feed-col">
         <h2 class="feed-title" id="feed-title">최근 계약</h2>
@@ -269,6 +276,7 @@ details[open] > .row-sum .chev{transform:rotate(-135deg)}
     <li>평형은 현장에서 부르는 호칭이고, 전용면적을 함께 적었습니다.</li>
     <li>저층·코너 세대처럼 면적이 다른 일부 거래는 평형별 집계에 넣지 않았습니다.</li>
     <li>계약 후 30일 안에 신고하므로 최근 계약은 늦게 나타날 수 있습니다. 동은 소유권 이전등기 뒤에 공개됩니다.</li>
+    <li>최근 토지거래허가는 서울부동산정보광장의 토지거래허가 내역(강남구)에서 압구정 1~6구역 지번만 골라 구청 처리일 순으로 보여 줍니다. 허가는 계약 전 단계라 실제 거래로 이어지지 않을 수 있습니다.</li>
     <li>참고용 자료입니다. 실제 거래 전에는 반드시 다시 확인해 주세요.</li>
   </ul>
   <p class="foot-brand"><strong>압구정동 현대아파트 전문 연세부동산중개법인(주)</strong> · 문의전화 <a href="tel:025423400">02-542-3400</a></p>
@@ -444,6 +452,24 @@ details[open] > .row-sum .chev{transform:rotate(-135deg)}
     var t = parseFeed(s);
     if (t) feed.appendChild(feedItem(t, true));
   });
+
+  /* 전광판: 최근 토지거래허가 (자료가 있을 때만 보인다) */
+  var PM = D.permits;
+  if (PM && Array.isArray(PM.rows)) {
+    ['permit-title', 'permit-cap', 'permits'].forEach(function (id) { $(id).hidden = false; });
+    var pBox = $('permits');
+    if (!PM.rows.length) pBox.appendChild(el('li', 'p-empty', '최근 두 달 동안 압구정 1~6구역 허가 내역이 없습니다.'));
+    PM.rows.slice(0, 5).forEach(function (r) {
+      var li = el('li');
+      li.appendChild(el('span', 'f-date', ymd(String(r[0]))));
+      var nm = el('span', 'f-name');
+      nm.appendChild(el('b', null, r[2]));
+      nm.appendChild(el('span', 'f-meta', r[1] + '구역' + (r[4] ? ' · ' + r[4] : '')));
+      li.appendChild(nm);
+      li.appendChild(el('span', 'p-st' + (r[3] === '허가' ? '' : ' p-off'), r[3]));
+      pBox.appendChild(li);
+    });
+  }
 
   /* 구역 → 단지 → 평형 */
   function row(g) {

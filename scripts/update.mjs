@@ -1,9 +1,11 @@
 // 압구정 실거래 전광판 자료 갱신
 // 국토교통부 아파트 매매 실거래가 상세 자료(강남구 → 압구정동)를 받아 raw/rows.json 을 고치고 site/data.js 를 새로 만든다.
-// 사용법: MOLIT_KEY=인증키 node scripts/update.mjs [auto | 개월수 | all | build]
-//   auto  : 평소 최근 3개월, 월요일(한국 시간)에는 최근 12개월
-//   all   : 2006년 1월부터 전부
-//   build : 받지 않고 raw/rows.json 으로 site/data.js 만 다시 만든다
+// 서울부동산정보광장의 토지거래허가 내역(강남구)도 받아 압구정 1~6구역 지번만 raw/permits.json 에 모은다.
+// 사용법: MOLIT_KEY=인증키 node scripts/update.mjs [auto | 개월수 | all | build | permits]
+//   auto    : 평소 최근 3개월, 월요일(한국 시간)에는 최근 12개월
+//   all     : 2006년 1월부터 전부
+//   build   : 받지 않고 raw/rows.json 으로 site/data.js 만 다시 만든다
+//   permits : 국토부 자료는 받지 않고 토지거래허가 내역만 받아 site/data.js 를 다시 만든다(인증키 필요 없음)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +14,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONF = JSON.parse(fs.readFileSync(path.join(ROOT, 'config/cfg.json'), 'utf8'));
 const CFG = CONF.cfg;
 const RAW = path.join(ROOT, 'raw/rows.json');
+const PRAW = path.join(ROOT, 'raw/permits.json');
 const OUT = path.join(ROOT, 'site/data.js');
+const PERMIT_URL = 'https://land.seoul.go.kr/land/wsklis/getContractList.do';
 const BASE = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
 const KEY = (process.env.MOLIT_KEY || '').trim();
 const MODE = (process.argv[2] || 'auto').trim();
@@ -102,6 +106,59 @@ function aggregate() {
   return { G, lines, feed, fresh, valid: all.length, cancel, un };
 }
 
+// ── 토지거래허가 내역(서울부동산정보광장 → 강남구) ──────────────────────
+// 한 번에 최대 62일까지 조회된다. 압구정동 주소만 골라, 거래 자료에서 그 지번에 가장 많이 나온 단지로 이름을 붙인다.
+let P = { asOf: '', from: '', to: '', rows: [] };
+if (fs.existsSync(PRAW)) { try { const j = JSON.parse(fs.readFileSync(PRAW, 'utf8')); P = { asOf: j.asOf || '', from: j.from || '', to: j.to || '', rows: j.rows || [] }; } catch (e) { say('raw/permits.json 을 읽지 못해 새로 만듭니다.'); } }
+const dayShift = (d, n) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8) + n)).toISOString().slice(0, 10).replace(/-/g, '');
+function jibunUnits() {
+  const keyUnit = {};
+  CFG.forEach(l => { const f = l.split('|'); f[2].split(',').forEach(k => { keyUnit[k] = f[0] + '|' + f[1]; }); });
+  const cnt = {};
+  S.rows.forEach(r => { const u = keyUnit[gkey(r.n)]; if (!u || !r.jb) return; const m = (cnt[r.jb] = cnt[r.jb] || {}); m[u] = (m[u] || 0) + 1; });
+  const out = {};
+  Object.keys(cnt).forEach(jb => { const best = Object.entries(cnt[jb]).sort((a, b) => b[1] - a[1])[0][0].split('|'); out[jb] = { z: best[0], u: best[1] }; });
+  return out;
+}
+async function permitCall(begin, end) {
+  const r = await fetch(PERMIT_URL, {
+    method: 'POST',
+    body: new URLSearchParams({ sggCd: '11680', beginDate: begin, endDate: end }),
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Referer': 'https://land.seoul.go.kr/land/other/contractStatus.do', 'User-Agent': 'Mozilla/5.0 (apgujeong-board)' },
+    signal: AbortSignal.timeout(40000)
+  });
+  const t = await r.text();
+  let j; try { j = JSON.parse(t); } catch (e) { throw new Error('응답 해석 실패(HTTP ' + r.status + ')'); }
+  if (!j || !Array.isArray(j.result)) throw new Error('응답 형식이 예상과 다릅니다');
+  if (j.result.length && j.result[0].MESSAGE === 'EXCEPTION') throw new Error('한국토지정보시스템 점검 중');
+  return j.result;
+}
+async function refreshPermits() {
+  const end = kstDay(), begin = dayShift(end, -60);
+  const list = await retry(() => permitCall(begin, end), 3);
+  const map = jibunUnits();
+  const got = {};
+  list.forEach(x => {
+    const addr = String(x.ADDRESS || '');
+    if (!addr.includes('압구정동')) return;
+    const jb = addr.replace(/^.*압구정동\s*/, '').trim();
+    const u = map[jb]; if (!u) return;                      // 1~6구역 단지가 아닌 지번(상가·다른 건물)은 뺀다
+    // 같은 신청이 대표 지번·개별 지번으로 두 번 올라오는 경우가 있어 접수번호로 묶는다
+    const k = x.ACC_NO ? String(x.ACC_YEAR || '') + '-' + String(x.ACC_NO) : ['X', jb, x.HNDL_YMD, x.OBJ_SEQNO].join('-');
+    const rec = { k, d: String(x.HNDL_YMD || ''), z: u.z, u: u.u, jb, st: String(x.JOB_GBN_NM || '').trim(), pu: String(x.USE_PURP || '').trim() };
+    if (!got[k] || rec.d >= got[k].d) got[k] = rec;
+  });
+  const known = new Set(P.rows.map(x => x.k));
+  const first = !P.rows.length;
+  const recs = Object.values(got);
+  const fresh = recs.filter(x => !known.has(x.k));
+  const byK = new Map(P.rows.map(x => [x.k, x]));
+  recs.forEach(x => byK.set(x.k, x));
+  P.rows = [...byK.values()].sort((a, b) => b.d.localeCompare(a.d) || b.k.localeCompare(a.k)).slice(0, 300);
+  P.from = begin; P.to = end;
+  return { fresh, first, total: list.length, apg: recs.length };
+}
+
 function monthsFor(mode) {
   const d0 = kstNow(); const list = [];
   const push = n => { for (let i = n - 1; i >= 0; i--) { const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - i, 1)); list.push(d.getUTCFullYear() * 100 + d.getUTCMonth() + 1); } };
@@ -112,7 +169,7 @@ function monthsFor(mode) {
 
 const today = kstDay();
 let fresh = [], failed = [], full = false;
-if (MODE !== 'build') {
+if (MODE !== 'build' && MODE !== 'permits') {
   if (!KEY) fail('MOLIT_KEY 비밀값이 없습니다. 저장소 Settings → Secrets and variables → Actions 에 MOLIT_KEY 를 넣어 주세요.');
   if (!S.track.since && CONF.seed && CONF.seed.since) S.track = { since: CONF.seed.since, days: [CONF.seed.since] };
   const plan = monthsFor(MODE); full = plan.full;
@@ -129,13 +186,28 @@ if (MODE !== 'build') {
 }
 if (S.rows.length < 5000) fail('받아 둔 자료가 없습니다. 먼저 전체 수집(all)을 돌려 주세요.');
 
+// 토지거래허가 내역은 실패해도 전광판 갱신을 멈추지 않는다(직전 자료를 그대로 둔다).
+let pr = null, permitErr = '';
+if (MODE !== 'build') {
+  try {
+    pr = await refreshPermits();
+    P.asOf = kstNow().toISOString().slice(0, 19) + '+09:00';
+    say('토지거래허가 내역: 강남구 ' + pr.total + '건 중 압구정 1~6구역 ' + pr.apg + '건' + (pr.first ? ' (처음 받음)' : ', 새로 ' + pr.fresh.length + '건'));
+  } catch (e) {
+    permitErr = e.message || String(e);
+    say('토지거래허가 내역을 받지 못했습니다(직전 자료 유지): ' + permitErr);
+  }
+}
+
 S.rows.sort((p, q) => dt(p) - dt(q) || (p.n < q.n ? -1 : p.n > q.n ? 1 : 0) || p.a - q.a || p.p - q.p || (p.f || 0) - (q.f || 0) || (p.c < q.c ? -1 : p.c > q.c ? 1 : 0));
 const A = aggregate();
 const unKeys = Object.keys(A.un).sort();
 const unTotal = unKeys.reduce((s, k) => s + A.un[k], 0);
 const newAreas = unKeys.filter(k => !(CONF.excluded || []).includes(k));
 const kn = kstNow();
-const asOf = kn.toISOString().slice(0, 19) + '+09:00';
+// permits 모드는 국토부 자료를 받지 않으므로 기준 시각을 바꾸지 않는다.
+const prevAsOf = (() => { try { const m = fs.readFileSync(OUT, 'utf8').match(/asOf:\s*"([^"]+)"/); return m ? m[1] : ''; } catch (e) { return ''; } })();
+const asOf = (MODE === 'permits' && prevAsOf) ? prevAsOf : kn.toISOString().slice(0, 19) + '+09:00';
 const last = S.rows.length ? S.rows[S.rows.length - 1] : null;
 const arr = a => '[\n' + a.map(x => JSON.stringify(x)).join(',\n') + '\n  ]';
 const js = '/* 압구정 실거래 전광판 데이터 — 자동으로 만들어지는 파일입니다(scripts/update.mjs). 직접 고치지 마세요.\n'
@@ -143,7 +215,8 @@ const js = '/* 압구정 실거래 전광판 데이터 — 자동으로 만들�
   + '   cfg  : 구역|단지|국토부 단지명|호칭|전용면적㎡|동\n'
   + '   lines: 번호|유효건수|최근1년건수|해제건수|첫거래연도|최고가|최근거래(최대 5건, ;구분)|등기거래에서 확인된 동|#체크섬\n'
   + '   거래 : 금액(만원),계약일,층,동,표시(D=직거래, H=계약 당시 신고가)\n'
-  + '   feed : 번호,금액,계약일,층,동,표시,뜬 날 (최근 계약 순)   fresh: 같은 형식, 새로 뜬 거래(뜬 날 최신순) */\n'
+  + '   feed : 번호,금액,계약일,층,동,표시,뜬 날 (최근 계약 순)   fresh: 같은 형식, 새로 뜬 거래(뜬 날 최신순)\n'
+  + '   permits: 서울부동산정보광장 토지거래허가 내역(강남구) 중 압구정 1~6구역, rows = [처리일, 구역, 단지, 결과, 이용목적] (처리일 최신순) */\n'
   + 'window.APG = {\n'
   + '  asOf: ' + JSON.stringify(asOf) + ',\n'
   + '  counts: ' + JSON.stringify({ rows: S.rows.length, valid: A.valid, cancel: A.cancel, excluded: unTotal, from: '2006-01', to: last ? last.y + '-' + String(last.m).padStart(2, '0') : '' }) + ',\n'
@@ -151,14 +224,19 @@ const js = '/* 압구정 실거래 전광판 데이터 — 자동으로 만들�
   + '  cfg: ' + arr(CFG) + ',\n'
   + '  lines: ' + arr(A.lines) + ',\n'
   + '  feed: ' + arr(A.feed) + ',\n'
-  + '  fresh: ' + arr(A.fresh) + '\n'
+  + '  fresh: ' + arr(A.fresh) + ',\n'
+  + '  permits: ' + (P.asOf ? JSON.stringify({ asOf: P.asOf, from: P.from, to: P.to, rows: P.rows.slice(0, 10).map(x => [x.d, x.z, x.u, x.st, x.pu]) }) : 'null') + '\n'
   + '};\n';
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, js);
-if (MODE !== 'build') {
+if (MODE !== 'build' && MODE !== 'permits') {
   fs.mkdirSync(path.dirname(RAW), { recursive: true });
   const rowsOut = S.rows.map(r => { const o = { ...r }; delete o._g; return o; });
   fs.writeFileSync(RAW, '{"track":' + JSON.stringify(S.track) + ',"months":' + JSON.stringify(S.months) + ',"rows":[\n' + rowsOut.map(r => JSON.stringify(r)).join(',\n') + '\n]}\n');
+}
+if (pr) {
+  fs.mkdirSync(path.dirname(PRAW), { recursive: true });
+  fs.writeFileSync(PRAW, '{"asOf":' + JSON.stringify(P.asOf) + ',"from":' + JSON.stringify(P.from) + ',"to":' + JSON.stringify(P.to) + ',"rows":[\n' + P.rows.map(r => JSON.stringify(r)).join(',\n') + '\n]}\n');
 }
 
 const won = p => { const e = Math.floor(p / 10000), r = p % 10000; return (e ? e + '억' : '') + (r ? (e ? ' ' : '') + r.toLocaleString('ko-KR') + (e ? '' : '만') : ''); };
@@ -171,3 +249,9 @@ summary('- 새로 뜬 거래: ' + fresh.length + '건');
 fresh.forEach(r => { const t = '  - ' + r.y + '.' + String(r.m).padStart(2, '0') + '.' + String(r.d).padStart(2, '0') + ' 계약 · ' + label(r) + ' · ' + won(r.p) + (r.f != null ? ' · ' + r.f + '층' : '') + (r.c === 'O' ? ' · 해제 신고' : ''); say(t); summary(t); });
 if (failed.length) { say('받지 못한 달:', failed.join(' / ')); summary('- 받지 못한 달(다음 갱신 때 다시 받음): ' + failed.join(' / ')); }
 if (newAreas.length) { const t = '호칭이 없는 새 면적이 나왔습니다(평형별 집계에서 빠져 있음): ' + newAreas.join(', '); say(t); summary('- **확인 필요:** ' + t); }
+const pd = d => d.slice(0, 4) + '.' + d.slice(4, 6) + '.' + d.slice(6, 8);
+if (permitErr) summary('- 토지거래허가 내역: 받지 못함(직전 자료 유지) — ' + permitErr);
+else if (pr) {
+  summary('- 토지거래허가 내역(압구정 1~6구역, 최근 60일): ' + pr.apg + '건' + (pr.first ? ' — 처음 받음' : ', 새로 ' + pr.fresh.length + '건'));
+  if (!pr.first) pr.fresh.slice(0, 15).forEach(x => { const t = '  - ' + pd(x.d) + ' ' + x.st + ' · ' + x.z + '구역 ' + x.u + (x.pu ? ' · ' + x.pu : ''); say(t); summary(t); });
+}

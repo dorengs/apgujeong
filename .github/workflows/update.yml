@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: '받는 범위: auto(평소) · 숫자(최근 몇 개월) · all(2006년부터 전부)'
+        description: '받는 범위: auto(평소) · 숫자(최근 몇 개월) · all(2006년부터 전부) · permits(토지거래허가 내역만)'
         default: 'auto'
       retry:
         description: '자동 재시도 횟수(사람이 직접 돌릴 때는 비워 두세요)'
